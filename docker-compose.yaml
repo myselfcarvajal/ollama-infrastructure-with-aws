@@ -1,0 +1,99 @@
+# services:
+#   ollama:
+#     volumes:
+#       - ollama:/root/.ollama
+#     container_name: ollama
+#     pull_policy: always
+#     tty: true
+#     restart: unless-stopped
+#     image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
+
+#   open-webui:
+#     build:
+#       context: .
+#       args:
+#         OLLAMA_BASE_URL: '/ollama'
+#       dockerfile: Dockerfile
+#     image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
+#     container_name: open-webui
+#     volumes:
+#       - open-webui:/app/backend/data
+#     depends_on:
+#       - ollama
+#     ports:
+#       - ${OPEN_WEBUI_PORT-3000}:8080
+#     environment:
+#       - 'OLLAMA_BASE_URL=http://ollama:11434'
+#       - 'WEBUI_SECRET_KEY='
+#     extra_hosts:
+#       - host.docker.internal:host-gateway
+#     restart: unless-stopped
+
+# volumes:
+#   ollama: {}
+#   open-webui: {}
+
+
+services:
+  ollama:
+    volumes:
+      - ollama:/root/.ollama
+    container_name: ollama
+    ports:
+      - 11434:11434
+    pull_policy: always
+    tty: true
+    restart: unless-stopped
+    image: ollama/ollama:latest
+    # networks:
+    #   - webui-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: backend-webui:latest
+    container_name: backend-webui
+    volumes:
+      - backend-data:/app/backend/data
+    environment:
+      - 'WEBUI_SECRET_KEY='
+      - 'ENV=prod'
+      # - 'WEBUI_AUTH=true'
+      - 'OLLAMA_BASE_URL=http://ollama:11434'
+      - 'CORS_ALLOW_ORIGIN=http://localhost:5173;http://localhost:4173;http://localhost:3000'
+    # depends_on:
+    #   - ollama
+    ports:
+      - 8080:8080
+    restart: unless-stopped
+    # networks:
+    #   - webui-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: frontend-webui:latest
+    container_name: frontend-webui
+    volumes:
+      - frontend-data:/app/build
+    environment:
+      - 'ENV=prod'  # Define el entorno de producción
+      - 'WEBUI_HOSTNAME=backend:8080'  # O tu dominio en producción
+      - 'WEBUI_API_BASE_URL=http://backend:8080'  # Enlace al backend
+      - 'OLLAMA_API_BASE_URL=http://ollama:11434'  # Enlace al servicio de Ollama 
+    ports:
+      - 3000:80
+    restart: unless-stopped
+    # networks:
+    #   - webui-network
+
+volumes:
+  ollama: {}
+  backend-data: {}
+  frontend-data: {}
+
+# networks:
+#   webui-network:
+#     driver: bridge
